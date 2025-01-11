@@ -18,22 +18,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    // Initialize Supabase auth listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!mounted) return;
-
-      console.log('Auth state changed:', event, session);
-
-      if (event === 'SIGNED_IN' && session) {
-        setIsAuthenticated(true);
-        setIsLoading(false);
-      } else if (event === 'SIGNED_OUT') {
-        setIsAuthenticated(false);
-        queryClient.clear();
-        setIsLoading(false);
-      }
-    });
-
     // Initial session check
     const checkSession = async () => {
       try {
@@ -50,6 +34,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
             variant: "destructive",
           });
         } else {
+          console.log('Initial session check:', session);
           setIsAuthenticated(!!session);
         }
       } catch (error) {
@@ -62,6 +47,36 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
+    // Initialize Supabase auth listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
+      console.log('Auth state changed:', event, session);
+
+      switch (event) {
+        case 'SIGNED_IN':
+          if (session) {
+            setIsAuthenticated(true);
+            setIsLoading(false);
+          }
+          break;
+        case 'SIGNED_OUT':
+          setIsAuthenticated(false);
+          queryClient.clear();
+          setIsLoading(false);
+          break;
+        case 'TOKEN_REFRESHED':
+          console.log('Token refreshed:', session);
+          setIsAuthenticated(!!session);
+          break;
+        case 'USER_UPDATED':
+          console.log('User updated:', session);
+          setIsAuthenticated(!!session);
+          break;
+      }
+    });
+
+    // Check session on mount
     checkSession();
 
     return () => {
