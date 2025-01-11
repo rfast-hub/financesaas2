@@ -19,7 +19,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     let mounted = true;
 
     // Initialize Supabase auth listener
-    supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
 
       console.log('Auth state changed:', event, session);
@@ -27,7 +27,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
         setIsLoading(false);
-      } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+      } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         queryClient.clear();
         setIsLoading(false);
@@ -66,6 +66,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
       mounted = false;
+      subscription.unsubscribe();
     };
   }, []);
 
