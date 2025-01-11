@@ -18,27 +18,43 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    const checkAuth = async () => {
+    // Initialize Supabase auth listener
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      console.log('Auth state changed:', event, session);
+
+      if (event === 'SIGNED_IN' && session) {
+        setIsAuthenticated(true);
+        setIsLoading(false);
+      } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        setIsAuthenticated(false);
+        queryClient.clear();
+        setIsLoading(false);
+      }
+    });
+
+    // Initial session check
+    const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+
         if (error) {
-          console.error('Auth error:', error);
-          if (mounted) {
-            setIsAuthenticated(false);
-            toast({
-              title: "Session Expired",
-              description: "Please log in again",
-              variant: "destructive",
-            });
-          }
-        } else if (mounted) {
+          console.error('Session check error:', error);
+          setIsAuthenticated(false);
+          toast({
+            title: "Session Error",
+            description: "Please sign in again",
+            variant: "destructive",
+          });
+        } else {
           setIsAuthenticated(!!session);
         }
       } catch (error) {
-        console.error('Session check error:', error);
-        if (mounted) {
-          setIsAuthenticated(false);
-        }
+        console.error('Unexpected error during session check:', error);
+        setIsAuthenticated(false);
       } finally {
         if (mounted) {
           setIsLoading(false);
@@ -46,38 +62,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    // Initialize session check
-    checkAuth();
+    checkSession();
 
-    // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-
-      console.log('Auth state changed:', event);
-      
-      switch (event) {
-        case 'SIGNED_IN':
-          setIsAuthenticated(true);
-          break;
-        case 'SIGNED_OUT':
-          setIsAuthenticated(false);
-          queryClient.clear();
-          break;
-        case 'TOKEN_REFRESHED':
-          setIsAuthenticated(!!session);
-          break;
-        case 'USER_UPDATED':
-          setIsAuthenticated(!!session);
-          break;
-      }
-      
-      setIsLoading(false);
-    });
-
-    // Cleanup
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
   }, []);
 
