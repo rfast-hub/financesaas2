@@ -16,42 +16,69 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     const checkAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error('Auth error:', error);
-          toast({
-            title: "Authentication Error",
-            description: "Please try logging in again",
-            variant: "destructive",
-          });
-          setIsAuthenticated(false);
-        } else {
+          if (mounted) {
+            setIsAuthenticated(false);
+            toast({
+              title: "Session Expired",
+              description: "Please log in again",
+              variant: "destructive",
+            });
+          }
+        } else if (mounted) {
           setIsAuthenticated(!!session);
         }
       } catch (error) {
         console.error('Session check error:', error);
-        setIsAuthenticated(false);
+        if (mounted) {
+          setIsAuthenticated(false);
+        }
       } finally {
-        setIsLoading(false);
+        if (mounted) {
+          setIsLoading(false);
+        }
       }
     };
 
+    // Initialize session check
+    checkAuth();
+
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setIsAuthenticated(false);
-        queryClient.clear(); // Clear query cache on logout
-      } else if (event === 'SIGNED_IN') {
-        setIsAuthenticated(true);
-      } else if (event === 'TOKEN_REFRESHED') {
-        setIsAuthenticated(!!session);
+      if (!mounted) return;
+
+      console.log('Auth state changed:', event);
+      
+      switch (event) {
+        case 'SIGNED_IN':
+          setIsAuthenticated(true);
+          break;
+        case 'SIGNED_OUT':
+          setIsAuthenticated(false);
+          queryClient.clear();
+          break;
+        case 'TOKEN_REFRESHED':
+          setIsAuthenticated(!!session);
+          break;
+        case 'USER_UPDATED':
+          setIsAuthenticated(!!session);
+          break;
       }
+      
       setIsLoading(false);
     });
 
-    checkAuth();
-    return () => subscription.unsubscribe();
+    // Cleanup
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   if (isLoading) {
