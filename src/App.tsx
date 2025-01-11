@@ -18,7 +18,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     let mounted = true;
 
-    // Initial session check
+    // Initial session check with persistent session handling
     const checkSession = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -35,7 +35,13 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           });
         } else {
           console.log('Initial session check:', session);
-          setIsAuthenticated(!!session);
+          if (session) {
+            // Ensure session is properly persisted
+            await supabase.auth.setSession(session);
+            setIsAuthenticated(true);
+          } else {
+            setIsAuthenticated(false);
+          }
         }
       } catch (error) {
         console.error('Unexpected error during session check:', error);
@@ -47,7 +53,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       }
     };
 
-    // Initialize Supabase auth listener
+    // Initialize Supabase auth listener with improved error handling
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
@@ -56,6 +62,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       switch (event) {
         case 'SIGNED_IN':
           if (session) {
+            await supabase.auth.setSession(session);
             setIsAuthenticated(true);
             setIsLoading(false);
           }
@@ -66,12 +73,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
           setIsLoading(false);
           break;
         case 'TOKEN_REFRESHED':
-          console.log('Token refreshed:', session);
-          setIsAuthenticated(!!session);
+          if (session) {
+            console.log('Token refreshed:', session);
+            await supabase.auth.setSession(session);
+            setIsAuthenticated(true);
+          }
           break;
         case 'USER_UPDATED':
-          console.log('User updated:', session);
-          setIsAuthenticated(!!session);
+          if (session) {
+            console.log('User updated:', session);
+            await supabase.auth.setSession(session);
+            setIsAuthenticated(true);
+          }
           break;
       }
     });
