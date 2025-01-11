@@ -4,19 +4,14 @@ import { Auth } from "@supabase/auth-ui-react";
 import { ThemeSupa } from "@supabase/auth-ui-shared";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "sonner";
 
 const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) {
         navigate("/dashboard");
-      }
-
-      if (event === "SIGNED_OUT") {
-        navigate("/");
       }
     });
 
@@ -49,15 +44,6 @@ const Login = () => {
             view="sign_in"
             showLinks={false}
           />
-          <div className="mt-4 text-sm text-muted-foreground">
-            <p>Password requirements:</p>
-            <ul className="list-disc list-inside">
-              <li>Minimum 8 characters</li>
-              <li>At least one uppercase letter</li>
-              <li>At least one number</li>
-              <li>At least one special character</li>
-            </ul>
-          </div>
         </div>
       </div>
     </div>
